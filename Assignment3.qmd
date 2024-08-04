@@ -1,0 +1,312 @@
+---
+title: "Assignment3_MS5130_23101988"
+format: html
+editor: visual
+---
+
+### Importing libraries and setting the current working directory to read the csv files.
+
+```{r}
+library(dplyr)
+library(lubridate)
+library(magrittr)
+library(tidyverse)
+library(tidytext)
+library(textdata)
+library(ggplot2)
+library(shiny)
+library(plotly)
+
+setwd("C:/Users/kanis/Documents/Applied analytics")
+```
+
+### Mermaid code for data flow
+
+```{mermaid}
+graph TD;
+    A(Data Frame 1) -->|Rename Columns| A1(Data Frame 1 - Renamed);
+    B(Data Frame 2) -->|Rename Columns| B1(Data Frame 2 - Renamed);
+    C(Data Frame 3) -->|Rename Columns| C1(Data Frame 3 - Renamed);
+    D(Data Frame 4) -->|Rename Columns| D1(Data Frame 4 - Renamed);
+    A1 -->|Select Columns| A2(Data Frame 1 - Selected);
+    B1 -->|Select Columns| B2(Data Frame 2 - Selected);
+    C1 -->|Select Columns| C2(Data Frame 3 - Selected);
+    D1 -->|Select Columns| D2(Data Frame 4 - Selected);
+    D2 -->|Joining the dataframes| E6(Final data);
+    A2 -->|Multiply Columns| A3(Data Frame 1 - Multiplied);
+    B2 -->|Multiply Columns| B3(Data Frame 2 - Multiplied);
+    C2 -->|Multiply Columns| C3(Data Frame 3 - Multiplied);
+    A3 -->|Fill Missing Columns| A4(Data Frame 1 - Filled);
+    A4 -->|Merging the dataframes| E5(Merged data)
+    B3 -->|Fill Missing Columns| B4(Data Frame 2 - Filled);
+    B4 -->|Merging the dataframes| E5(Merged data)
+    C3 -->|Fill Missing Columns| C4(Data Frame 3 - Filled);
+    C4 -->|Merging the dataframes| E5(Merged data);
+    E5(Merged data) -->|Joining the dataframes| E6(Final data);
+```
+
+### Reading csv files to datframe
+
+```{r}
+df1 <- read.csv("Spotify Music.csv")
+df2 <- read.csv("spotify_top_music.csv")
+df3 <- read.csv("spotify-dataset.csv")
+df4 <- read.csv("spotify_songs.csv", encoding = "UTF-8")
+```
+
+### Dataframe details
+
+```{r}
+str(df1)
+str(df2)
+str(df3)
+str(df4)
+
+# Display column names
+colnames(df1)
+colnames(df2)
+colnames(df3)
+colnames(df4)
+```
+
+The str() function in R reveals an object's structure and is particularly informative for data frames, detailing the number and types of variables, as well as showing a snapshot of the data in each column. This aids in assessing the data at a glance and identifying any immediate issues. Conversely, colnames() simply retrieves a data frame's column names, which is useful for orienting oneself with the available data, referencing columns in code, and ensuring data frames align when merging or analyzing them together.
+
+### Renaming columns to make them consistent
+
+```{r}
+df1_renamed <- df1 %>%
+  rename(
+    track_name = track_name,
+    artist_name = artist.s._name,
+    year = released_year,
+    bpm = bpm,
+    danceability = danceability_.,
+    energy = energy_.,
+    valence = valence_.,
+    acousticness = acousticness_.,
+    instrumentalness = instrumentalness_.,
+    liveness = liveness_.,
+    speechiness = speechiness_.
+  )
+
+df2_renamed <- df2 %>%
+  rename(
+    track_name = title,
+    artist_name = artist,
+    genre = top.genre,
+    year = year,
+    bpm = bpm,
+    danceability = dnce,
+    energy = nrgy,
+    valence = val,
+    acousticness = acous,
+    liveness = live,
+    speechiness = spch
+  )
+
+df3_renamed <- df3 %>%
+  rename(
+    track_name = track_name,
+    artist_name = artists,
+    bpm = tempo,
+    danceability = danceability,
+    energy = energy,
+    valence = valence,
+    acousticness = acousticness,
+    instrumentalness = instrumentalness,
+    liveness = liveness,
+    speechiness = speechiness,
+    genre = track_genre
+  )
+df4_renamed <- df4 %>%
+  rename(
+    artist_name = track_artist
+  )
+```
+
+The rename() function from dplyr is used to standardize column names across four data frames: df1, df2, df3, and df4. This ensures consistency, simplifying later data handling. For instance, artist.s.\_name in df1 is changed to artist_name, with similar adjustments made across the other data frames for columns like track_name, year, and various musical attributes such as danceability, energy, etc. In df4, only track_artist is renamed to artist_name.
+
+### Removing redundant columns
+
+```{r}
+df1_renamed <- df1_renamed %>%
+  select(-c(artist_count, released_month, released_day, in_spotify_playlists, in_spotify_charts, streams, in_apple_playlists, in_apple_charts, in_deezer_playlists, in_deezer_charts, in_shazam_charts, key, mode))
+
+df2_renamed <- df2_renamed %>%
+  select(-c(genre, year, bpm, dB, dur, pop))
+
+df3_renamed <- df3_renamed %>%
+  select(-c(X,  track_id, album_name, track_name, popularity, duration_ms, explicit, key, mode, bpm, time_signature, genre, loudness))
+
+df4_renamed <- df4_renamed %>%
+  select(-c(track_id, track_popularity, track_album_id, track_album_name, track_album_release_date, playlist_name, playlist_id, track_album_name, track_album_release_date, playlist_name, playlist_genre, playlist_id, playlist_subgenre, key, loudness, mode, tempo, duration_ms))
+```
+
+Specific columns are being removed from four renamed data frames: df1_renamed, df2_renamed, df3_renamed, and df4_renamed using the select() function combined with the -c() notation in dplyr.
+
+### Removing all "non-english" songs
+
+```{r}
+df4_filtered<-filter(df4_renamed, language == "en")
+```
+
+### Making values consistent
+
+```{r}
+columns_to_multiply <- c("instrumentalness", "danceability", "energy", "speechiness", "acousticness", "liveness", "valence")
+
+df3_renamed <- df3_renamed %>%
+  mutate(across(all_of(columns_to_multiply), ~ . * 100))
+
+df4_filtered <- df4_filtered %>%
+  mutate(across(all_of(columns_to_multiply), ~ . * 100))
+```
+
+A list of specific columns is defined under columns_to_multiply, including "instrumentalness", "danceability", "energy", "speechiness", "acousticness", "liveness", and "valence". The mutate() and across() functions from dplyr are then applied to df3_renamed and df4_filtered to multiply the values in these columns by 100. This operation is performed to adjust the scale of the selected musical attributes.
+
+### Define a function to fill missing columns with NA while merging and removing redundant columns
+
+```{r}
+fill_missing_columns <- function(df, all_columns) {
+  missing_columns <- setdiff(all_columns, colnames(df))
+  for (col in missing_columns) {
+    df[[col]] <- NA
+  }
+  return(df)
+}
+
+all_columns <- unique(c(colnames(df1_renamed), colnames(df2_renamed), colnames(df3_renamed)))
+
+merged_df <- do.call("rbind", lapply(list(df1_renamed, df2_renamed, df3_renamed), fill_missing_columns, all_columns))
+
+merged_df <- merged_df %>%
+  select(-c(bpm))
+```
+
+A function named fill_missing_columns is defined to add any missing columns to a dataframe, df, with NA values, based on a specified list of all necessary columns, all_columns. This function identifies the columns that are present in all_columns but not in the dataframe by using setdiff() and then iterates through these missing columns, adding them to the dataframe with NA as their values. An aggregated list of column names, all_columns, is created by combining and deduplicating the column names from df1_renamed, df2_renamed, and df3_renamed. Lastly, merged_df is created by row-binding (rbind) the three dataframes after applying the fill_missing_columns function to each. This ensures that all dataframes have a uniform set of columns, with NA filling in for any originally missing data, facilitating a coherent merged dataframe.
+
+### Checking duplicate entries, joining the data-sets to incorporate lyrics for qualitative analysis and removing redundant columns
+
+```{r}
+unm_df<-merged_df %>% distinct(track_name, .keep_all=TRUE)
+duplicated(unm_df$track_name)
+
+df_merge<-left_join(df4_filtered,unm_df, by = "track_name")
+df_merge <- df_merge %>%
+  select(-c(artist_name.y, danceability.y, valence.y,
+            energy.y, acousticness.y, instrumentalness.y, liveness.y,speechiness.y))
+```
+
+The code first checks for duplicate track_name entries in unm_df. Then, unm_df is updated to keep only unique tracks, preserving all data from the first instance of each track. A left_join merges df4_filtered with unm_df by track_name, forming df_merge. Lastly, df_merge is cleaned by removing duplicate or redundant columns resulting from the join, such as artist_name.y, danceability.y, and others, streamlining the dataframe for further use.
+
+### Interactive plot for relationship between danceability.x and valence.x
+
+```{r}
+plot_ly(data = df_merge, x = ~danceability.x, y = ~valence.x,
+        type = 'scatter', mode = 'markers', marker = list(color = 'blue'))
+```
+
+The code is constructing an interactive scatter plot with plotly, mapping danceability.x to the x-axis and valence.x to the y-axis. Each dot represents a data point from df_merge with its danceability and valence scores.
+
+#### Insights from the graph
+
+It appears that there is a wide distribution of both danceability and valence scores, ranging roughly from the lower end to the higher end of the possible spectrum for each. However, there's a noticeable density of points where higher danceability corresponds to higher valence, suggesting a trend where songs that are more danceable tend to be associated with more positive emotions. This pattern might not be strictly linear but indicates a general positive relationship between the two variables.
+
+There is significant spread in the middle of the danceability scale, indicating that songs with moderate danceability can vary widely in their valence. This diversity suggests that while there may be a tendency for more danceable songs to be happier, there are plenty of exceptions.
+
+Lastly, the data seems to cluster less at the extremes of danceability, particularly on the lower end, hinting that there are fewer very low danceability tracks in the dataset, or that such tracks have a less consistent relationship with valence.
+
+## Quantitative analysis
+
+### Fit a regression model to predict track valence based on energy and speechiness
+
+```{r}
+model <- lm(valence.x ~ energy.x + speechiness.x, data = df_merge)
+summary(model)
+```
+
+The code is defining a linear regression model named model using the lm() function in R, with valence.x as the response variable and energy.x and speechiness.x as predictor variables. This model is based on data from df_merge. The summary(model) function is then called to output the summary statistics of the model fit.
+
+The linear regression model output indicates that both energy.x and speechiness.x are statistically significant predictors of valence.x. The positive coefficients for both suggest that songs with higher energy or more words spoken are likely to be perceived as happier. However, the model's low R-squared value implies that it explains only about 4.23% of the variance in valence.x, hinting that there are other factors at play affecting song valence that are not accounted for in this model. Additionally, the residuals' range suggests some outliers or that the model's predictive accuracy varies across the data.
+
+## Qualitative analysis
+
+### Tokenize the lyrics, Get the Bing lexicon and performing sentiment analysis
+
+```{r}
+lyrics_tokens <- df_merge %>%
+  unnest_tokens(word, lyrics)
+
+# Get the Bing lexicon
+bing_lexicon <- get_sentiments("bing")
+
+sentiment_scores <- lyrics_tokens %>%
+  inner_join(bing_lexicon, by = "word", relationship = "many-to-many") %>%
+  count(track_name, sentiment) %>%
+  spread(sentiment, n, fill = 0) %>%
+  mutate(sentiment_score = positive - negative) %>%
+  mutate(song_mood = case_when(
+    sentiment_score > 0 ~ "happy",
+    sentiment_score < 0 ~ "sad",
+    TRUE ~ "neutral"  # For songs with a sentiment score of 0
+  ))
+```
+
+df_merge is being processed to conduct sentiment analysis on its lyrics column. The lyrics are tokenized into individual words by the unnest_tokens function. These words are then matched against a predefined sentiment lexicon known as Bing to classify them as positive or negative. A join is performed with this lexicon, followed by a tally of sentiment occurrences for each track. A sentiment_score is calculated by the subtraction of negative word counts from positive ones. Songs are consequently labeled "happy," "sad," or "neutral" based on this score.
+
+```{r}
+ggplot(sentiment_scores, aes(x = song_mood, fill = song_mood)) +
+  geom_bar() +
+  labs(title = "Sentiment Distribution of Songs", x = "Sentiment", y = "Number of Songs") +
+  scale_fill_manual(values = c("happy" = "yellow", "sad" = "blue", "neutral" = "grey")) +
+  theme_minimal()
+```
+
+This code will produce a colored bar chart, with each bar representing the count of songs in each sentiment category. The colors are chosen to intuitively match the mood labels, though you can customize them as you see fit.
+
+#### Insights from the plot
+
+The graph illustrates the sentiment distribution across a collection of songs, with each bar representing the count of songs that have been categorized as "happy", "neutral", or "sad". The yellow bar, representing happy songs, is significantly taller than the grey bar for neutral songs, suggesting that the number of songs with lyrics classified as "happy" is much greater than those with "neutral" sentiments. The blue bar for "sad" songs shows an even larger count, indicating that there are more songs with lyrics classified as sad than the other two categories.
+
+## Interactive distribution plots for each quantitative attribute using Shiny
+
+```{r shiny, engine="shiny"}
+# Run the app
+ui <- fluidPage(
+  titlePanel("Quantitative Feature Distribution"),
+  sidebarLayout(
+    sidebarPanel(
+      selectInput("feature",
+                  "Select a Feature:",
+                  choices = colnames(df_merge[, c("danceability.x", "energy.x", "speechiness.x",
+                                                  "acousticness.x", "instrumentalness.x", "liveness.x",
+                                                  "valence.x")]),
+                  selected = "danceability.x")
+    ),
+    mainPanel(
+      plotOutput("featurePlot")
+    )
+  )
+)
+
+# Define the server logic to create the histogram
+server <- function(input, output) {
+  
+  output$featurePlot <- renderPlot({
+    # Extract the selected feature
+    selected_feature <- input$feature
+    
+    # Generate the histogram of the selected feature
+    ggplot(df_merge, aes_string(x = selected_feature)) +
+      geom_histogram(binwidth = 0.05, fill = "blue", color = "black") +
+      labs(title = paste("Distribution of", selected_feature),
+           x = selected_feature, y = "Frequency") +
+      theme_minimal()
+  })
+}
+
+# Run the app
+shinyApp(ui, server)
+```
+
+An interactive Shiny web application is outlined in the code, designed for the visualization of the distribution of quantitative features within a dataset (df_merge). A dropdown menu is presented within the application interface, from which features like danceability or energy can be selected for examination. The server component, upon receiving user input, is tasked with rendering a histogram using ggplot2. This histogram is dynamically updated in response to the user's selection, providing a visual representation of the selected feature's frequency distribution. When the app is run, it enables a user-driven exploration of the dataset's attributes.
